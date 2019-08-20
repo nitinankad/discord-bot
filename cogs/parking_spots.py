@@ -14,7 +14,7 @@ class ParkingSpots(commands.Cog):
 		print("ParkingSpots commands loaded")
 
 	@commands.command(aliases=["p"])
-	async def parking(self):
+	async def parking(self, ctx):
 		data = urllib.urlopen(urllib.Request("https://www.utdallas.edu/services/transit/garages/_code.php", headers={"User-Agent": "Mozilla/5.0"})).read()
 
 		soup = bs(data, features="html5lib")
@@ -47,7 +47,7 @@ class ParkingSpots(commands.Cog):
 
 			embed.add_field(name=ps_name, value=output, inline=True)
 
-		await self.bot.say(embed=embed)
+		await ctx.send(embed=embed)
 
 
 

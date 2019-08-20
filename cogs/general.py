@@ -12,12 +12,12 @@ class General(commands.Cog):
 		print("General commands loaded")
 
 	@commands.command()
-	async def say(self, *, message):
-		await self.bot.say(message)
+	async def say(self, ctx, *, message):
+		await ctx.send(message)
 
 	# Fetch Bitcoin price
 	@commands.command()
-	async def btc(self):
+	async def btc(self, ctx):
 		api = "http://preev.com/pulse/units:btc+usd/sources:bitstamp+kraken"
 
 		r = requests.get(api)
@@ -27,7 +27,7 @@ class General(commands.Cog):
 		price = "${:,}".format(float(price))
 
 		embed=discord.Embed(title="Current Bitcoin price", description=price, color=0x0de358)
-		await self.bot.say(embed=embed)
+		await ctx.send(embed=embed)
 
 def setup(bot):
 	bot.add_cog(General(bot))
