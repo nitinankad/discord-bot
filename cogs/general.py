@@ -3,7 +3,7 @@ from discord.ext import commands
 import requests
 import json
 
-class General(object):
+class General(commands.Cog):
 	"""General commands"""
 	def __init__(self, bot):
 		self.bot = bot

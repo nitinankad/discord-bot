@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from glob import glob
+import os
 
 bot = commands.Bot(command_prefix="!", description="Bot")
 
@@ -10,12 +11,16 @@ async def on_ready():
 	print(discord.__version__)
 
 # Loads all commands from the cogs directory
-for cog in glob("cogs/*.py"):
-	cog = cog.split("cogs\\")[1].split(".py")[0]
-	bot.load_extension("cogs.{0}".format(cog))
+cogs = [i for i in os.listdir("cogs") if i.endswith(".py")]
 
-login_file = open("login.txt", "r")
-username, password = login_file.read().strip("\n").split(":")
-login_file.close()
+for cog in cogs:
+	cog_name = cog.split(".py")[0]
+	bot.load_extension("cogs.{0}".format(cog_name))
 
-bot.run(username, password, bot=False)
+
+token_file = open("token.txt", "r")
+token = token_file.read().strip("\n")
+token_file.close()
+
+# bot.run(username, password, bot=False)
+bot.run(token, bot=False)

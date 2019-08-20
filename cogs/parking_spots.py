@@ -3,7 +3,7 @@ import discord
 from bs4 import BeautifulSoup as bs
 import urllib.request as urllib
 
-class ParkingSpots(object):
+class ParkingSpots(commands.Cog):
 	'''
 		Loads avaliable parking spots in the UTD parking structures
 	'''
@@ -13,7 +13,7 @@ class ParkingSpots(object):
 	async def on_ready(self):
 		print("ParkingSpots commands loaded")
 
-	@commands.command()
+	@commands.command(aliases=["p"])
 	async def parking(self):
 		data = urllib.urlopen(urllib.Request("https://www.utdallas.edu/services/transit/garages/_code.php", headers={"User-Agent": "Mozilla/5.0"})).read()
 
@@ -48,6 +48,7 @@ class ParkingSpots(object):
 			embed.add_field(name=ps_name, value=output, inline=True)
 
 		await self.bot.say(embed=embed)
+
 
 
 
