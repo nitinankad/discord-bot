@@ -21,7 +21,7 @@ class ParkingSpots(commands.Cog):
 
 		parking_structures = soup.findAll("table")
 
-		embed = discord.Embed()
+		embed = discord.Embed(color=0x0de358)
 
 		for ps in parking_structures:
 			body = ps.findAll("tbody")[0]
