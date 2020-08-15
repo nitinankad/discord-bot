@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from glob import glob
 import os
 
 bot = commands.Bot(command_prefix="!", description="Bot")
