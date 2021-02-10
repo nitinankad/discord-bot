@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import os
 
-bot = commands.Bot(command_prefix="!", description="Bot")
+bot = commands.Bot(command_prefix="$", description="Bot")
 
 @bot.event
 async def on_ready():
@@ -21,5 +21,9 @@ token_file = open("token.txt", "r")
 token = token_file.read().strip("\n")
 token_file.close()
 
+<<<<<<< Updated upstream
 # bot.run(username, password, bot=False)
 bot.run(token, bot=False)
+=======
+bot.run(token, bot=False)
+>>>>>>> Stashed changes

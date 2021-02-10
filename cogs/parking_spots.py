@@ -13,7 +13,7 @@ class ParkingSpots(commands.Cog):
 	async def on_ready(self):
 		print("ParkingSpots commands loaded")
 
-	@commands.command(aliases=["p"])
+	@commands.command(aliases=["park"])
 	async def parking(self, ctx):
 		data = urllib.urlopen(urllib.Request("https://www.utdallas.edu/services/transit/garages/_code.php", headers={"User-Agent": "Mozilla/5.0"})).read()
 
