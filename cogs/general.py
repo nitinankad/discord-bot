@@ -54,7 +54,13 @@ class General(commands.Cog):
 		current_price = "$"+format(data["market_data"]["current_price"]["usd"], ",f")
 		image = data["image"]["thumb"]
 
-		embed=discord.Embed(title=current_price, color=0x0de358)
+		price_change = round(data["market_data"]["price_change_percentage_24h"], 2)
+
+		color = 0x0de358 if price_change > 0 else 0xff0000
+
+		current_price += " ("+str(price_change)+"%)"
+
+		embed=discord.Embed(title=current_price, color=color)
 		embed.set_author(name=ticker.upper(), icon_url=image)
 		await ctx.send(embed=embed)
 
