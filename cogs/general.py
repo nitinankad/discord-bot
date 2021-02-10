@@ -54,8 +54,8 @@ class General(commands.Cog):
 		current_price = "$"+format(data["market_data"]["current_price"]["usd"], ",f")
 		image = data["image"]["thumb"]
 
-		embed=discord.Embed(title=ticker.upper(), description=current_price, color=0x0de358)
-		embed.set_thumbnail(url=image)
+		embed=discord.Embed(title=current_price, color=0x0de358)
+		embed.set_author(name=ticker.upper(), icon_url=image)
 		await ctx.send(embed=embed)
 
 def setup(bot):
