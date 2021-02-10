@@ -21,9 +21,4 @@ token_file = open("token.txt", "r")
 token = token_file.read().strip("\n")
 token_file.close()
 
-<<<<<<< Updated upstream
-# bot.run(username, password, bot=False)
 bot.run(token, bot=False)
-=======
-bot.run(token, bot=False)
->>>>>>> Stashed changes
