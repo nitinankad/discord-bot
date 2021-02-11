@@ -44,7 +44,7 @@ class General(commands.Cog):
 	async def crypto(self, ctx, *, ticker):
 		ticker = ticker.lower()
 
-		if not ticker in self.tickers or not ticker in self.coin_ids:
+		if not ticker in self.tickers and not ticker in self.coin_ids:
 			print("Invalid ticker")
 			return
 
