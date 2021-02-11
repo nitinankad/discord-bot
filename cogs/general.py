@@ -10,13 +10,14 @@ class General(commands.Cog):
 
 		# Load crypto info
 		self.tickers = {}
+		self.coin_ids = {}
 
 		r = requests.get("https://api.coingecko.com/api/v3/coins/list")
 		data = r.json()
 
 		for coin in data:
 			self.tickers[coin["symbol"]] = coin["id"]
-			self.tickers[coin["id"]] = coin["symbol"]
+			self.coin_ids[coin["id"]] = coin["symbol"]
 
 	async def on_ready(self):
 		print("General commands loaded")
@@ -43,11 +44,14 @@ class General(commands.Cog):
 	async def crypto(self, ctx, *, ticker):
 		ticker = ticker.lower()
 
-		if not ticker in self.tickers:
+		if not ticker in self.tickers or not ticker in self.coin_ids:
 			print("Invalid ticker")
 			return
 
-		coin_id = self.tickers[ticker]
+		if ticker in self.tickers:
+			coin_id = self.tickers[ticker]
+		else:
+			coin_id = ticker
 		
 		r = requests.get("https://api.coingecko.com/api/v3/coins/"+coin_id)
 		data = r.json()
