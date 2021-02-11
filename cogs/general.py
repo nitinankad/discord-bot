@@ -65,8 +65,10 @@ class General(commands.Cog):
 
 		current_price += " ("+str(price_change)+"%)"
 
+		symbol = data["symbol"].upper()
+
 		embed=discord.Embed(title=current_price, color=color)
-		embed.set_author(name=ticker.upper(), icon_url=image)
+		embed.set_author(name=symbol, icon_url=image)
 		await ctx.send(embed=embed)
 
 def setup(bot):
