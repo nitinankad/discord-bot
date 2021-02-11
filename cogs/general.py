@@ -16,6 +16,7 @@ class General(commands.Cog):
 
 		for coin in data:
 			self.tickers[coin["symbol"]] = coin["id"]
+			self.tickers[coin["id"]] = coin["symbol"]
 
 	async def on_ready(self):
 		print("General commands loaded")
