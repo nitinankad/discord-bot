@@ -11,6 +11,7 @@ export class DiscordBotStack extends Stack {
       runtime: Runtime.PYTHON_3_14,
       handler: 'discord_bot.handler',
       code: Code.fromAsset('../'),
+      memorySize: 512,
       environment: {
         DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY || '',
       },
