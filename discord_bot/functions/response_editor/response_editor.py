@@ -43,6 +43,8 @@ def handler(event, context):
                 "body": json.dumps({"error": "Missing required field: content (or question for ask_followup)"}),
             }
 
+    content = content[:2000]
+
     url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
     data = json.dumps({"content": content}).encode()
     req = urllib.request.Request(url, data=data, method="PATCH", headers={"User-Agent": "nitinankad/discord-bot"})

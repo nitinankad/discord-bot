@@ -24,6 +24,7 @@ def get_bedrock_response(question: str) -> str:
     response = client.converse(
         modelId=model_id,
         messages=[{"role": "user", "content": [{"text": question}]}],
+        inferenceConfig={"maxTokens": 512},
     )
     logger.info(f"Bedrock response: {response}")
     return response["output"]["message"]["content"][0]["text"]
