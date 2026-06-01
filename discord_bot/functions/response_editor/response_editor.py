@@ -11,7 +11,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def handle(event, context):
+def handler(event, context):
     try:
         body = json.loads(event.get("body", "{}"))
     except (json.JSONDecodeError, TypeError):

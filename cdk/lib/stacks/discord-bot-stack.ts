@@ -42,7 +42,7 @@ export class DiscordBotStack extends Stack {
       memorySize: 256,
       environment: {
         DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY || '',
-
+        LAMBDA_FUNCTION_ARN: props?.responseEditorLambdaArn || '',
       },
     });
 
