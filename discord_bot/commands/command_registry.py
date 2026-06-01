@@ -4,12 +4,14 @@ from discord_bot.commands.command_handler import CommandHandler
 from discord_bot.commands.ping import PingCommand
 from discord_bot.commands.ask import AskCommand
 from discord_bot.commands.t2i import T2iCommand
+from discord_bot.commands.t2v import T2vCommand
 
 
 COMMAND_REGISTRY: dict[str, CommandHandler] = {
     "ping": PingCommand(),
     "ask": AskCommand(),
     "t2i": T2iCommand(),
+    "t2v": T2vCommand(),
 }
 
 def resolve_command(name: str) -> CommandHandler | None:

@@ -15,6 +15,7 @@ logger.setLevel(logging.INFO)
 
 RUNNINGHUB_BASE = "https://www.runninghub.ai/openapi/v2"
 RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/text-to-image"
+RUNNINGHUB_T2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/wan-2.2/text-to-video"
 RUNNINGHUB_QUERY_ENDPOINT = f"{RUNNINGHUB_BASE}/query"
 
 POLL_INTERVAL_SECONDS = 5
@@ -50,6 +51,16 @@ def handler(event, context):
             logger.error(f"Bedrock error: {e}")
             content = "Sorry, I encountered an error while processing your question."
         return _patch_discord_message(application_id, token, content[:2000])
+
+    elif task == "t2v_followup":
+        prompt = event.get("prompt")
+        if not prompt:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required field: prompt"}),
+            }
+        return _handle_t2v(application_id, token, prompt)
 
     elif task == "t2i_followup":
         prompt = event.get("prompt")
@@ -104,7 +115,66 @@ def _handle_t2i(application_id: str, token: str, prompt: str):
         return _patch_discord_message(application_id, token, f"Failed to download image: {e}")
 
     # Send to Discord as file attachment
-    return _patch_discord_message_with_image(application_id, token, image_bytes, content_type, prompt)
+    return _patch_discord_message_with_file(application_id, token, image_bytes, content_type, prompt)
+
+
+def _handle_t2v(application_id: str, token: str, prompt: str):
+    api_key = os.environ.get("RUNNINGHUB_API_KEY", "")
+    if not api_key:
+        logger.error("RUNNINGHUB_API_KEY is not set")
+        return _patch_discord_message(application_id, token, "Video generation is not configured.")
+
+    try:
+        task_id = _submit_t2v_job(api_key, prompt)
+    except Exception as e:
+        logger.error(f"RunningHub submit error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to start video generation: {e}")
+
+    logger.info(f"RunningHub task submitted: {task_id}")
+
+    try:
+        video_url = _poll_t2i_job(api_key, task_id)
+    except Exception as e:
+        logger.error(f"RunningHub poll error: {e}")
+        return _patch_discord_message(application_id, token, f"Video generation failed: {e}")
+
+    logger.info(f"RunningHub video ready: {video_url}")
+
+    try:
+        video_bytes, content_type = _download_image(video_url)
+    except Exception as e:
+        logger.error(f"Video download error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to download video: {e}")
+
+    return _patch_discord_message_with_file(application_id, token, video_bytes, content_type, prompt)
+
+
+def _submit_t2v_job(api_key: str, prompt: str) -> str:
+    payload = json.dumps({
+        " resolution": "832×480",
+        "duration": "5",
+        "prompt": prompt,
+        "negativePrompt": None,
+    }).encode()
+    req = urllib.request.Request(
+        RUNNINGHUB_T2V_ENDPOINT,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = json.loads(resp.read().decode())
+
+    logger.info(f"RunningHub t2v submit response: {body}")
+
+    task_id = body.get("taskId")
+    if not task_id:
+        raise ValueError(f"No taskId in submit response: {body}")
+    return task_id
 
 
 def _submit_t2i_job(api_key: str, prompt: str) -> str:
@@ -179,25 +249,31 @@ def _download_image(url: str) -> tuple[bytes, str]:
         return resp.read(), content_type
 
 
-def _ext_for_content_type(content_type: str) -> str:
-    return {
-        "image/png": "png",
-        "image/jpeg": "jpg",
-        "image/jpg": "jpg",
-        "image/webp": "webp",
-        "image/gif": "gif",
-    }.get(content_type, "png")
+_CONTENT_TYPE_MAP = {
+    "image/png": ("image", "png"),
+    "image/jpeg": ("image", "jpg"),
+    "image/jpg": ("image", "jpg"),
+    "image/webp": ("image", "webp"),
+    "image/gif": ("image", "gif"),
+    "video/mp4": ("video", "mp4"),
+    "video/webm": ("video", "webm"),
+    "video/quicktime": ("video", "mov"),
+}
 
 
-def _patch_discord_message_with_image(
+def _filename_for_content_type(content_type: str) -> str:
+    kind, ext = _CONTENT_TYPE_MAP.get(content_type, ("file", "bin"))
+    return f"{kind}.{ext}"
+
+
+def _patch_discord_message_with_file(
     application_id: str,
     token: str,
-    image_bytes: bytes,
+    file_bytes: bytes,
     content_type: str,
     prompt: str,
 ) -> dict:
-    ext = _ext_for_content_type(content_type)
-    filename = f"image.{ext}"
+    filename = _filename_for_content_type(content_type)
 
     boundary = uuid.uuid4().hex
     payload_json = json.dumps({
@@ -217,7 +293,7 @@ def _patch_discord_message_with_image(
         f'Content-Disposition: form-data; name="files[0]"; filename="{filename}"\r\n'
         f"Content-Type: {content_type}\r\n\r\n"
     ).encode()
-    body += image_bytes
+    body += file_bytes
     body += f"\r\n--{boundary}--\r\n".encode()
 
     url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
