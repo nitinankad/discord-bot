@@ -38,6 +38,7 @@ export class ResponseEditorStack extends Stack {
       }),
       environment: {
         BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-sonnet-4-5-20251001-v1:0',
+        RUNNINGHUB_API_KEY: process.env.RUNNINGHUB_API_KEY || '',
       },
     });
 

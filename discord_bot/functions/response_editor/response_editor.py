@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import time
+import uuid
 import urllib.request
 import urllib.error
 import logging
@@ -10,14 +13,20 @@ from discord_bot.facade.bedrock_facade import get_bedrock_response
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+RUNNINGHUB_BASE = "https://www.runninghub.ai/openapi/v2"
+RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/text-to-image"
+RUNNINGHUB_QUERY_ENDPOINT = f"{RUNNINGHUB_BASE}/query"
+
+POLL_INTERVAL_SECONDS = 5
+MAX_POLL_ATTEMPTS = 60  # 5 min max
+
 
 def handler(event, context):
     task = event.get("task", "")
     application_id = event.get("application_id")
     token = event.get("token")
-    question = event.get("question")
 
-    logger.info(f'Got a request with task={task}, app_id={application_id}, question={question}')
+    logger.info(f'Got a request with task={task}, app_id={application_id}')
 
     if not all([application_id, token]):
         return {
@@ -26,50 +35,235 @@ def handler(event, context):
             "body": json.dumps({"error": "Missing required fields: application_id, token"}),
         }
 
-    if task == "ask_followup" and question:
+    if task == "ask_followup":
+        question = event.get("question")
+        if not question:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required field: question"}),
+            }
         try:
             logger.info(f"Generating response for question: {question}")
-            answer = get_bedrock_response(question)
-            content = answer
+            content = get_bedrock_response(question)
         except Exception as e:
             logger.error(f"Bedrock error: {e}")
             content = "Sorry, I encountered an error while processing your question."
+        return _patch_discord_message(application_id, token, content[:2000])
+
+    elif task == "t2i_followup":
+        prompt = event.get("prompt")
+        if not prompt:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required field: prompt"}),
+            }
+        return _handle_t2i(application_id, token, prompt)
+
     else:
         content = event.get("content")
         if not content:
             return {
                 "statusCode": 400,
                 "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Missing required field: content (or question for ask_followup)"}),
+                "body": json.dumps({"error": "Missing required field: content"}),
             }
+        return _patch_discord_message(application_id, token, content[:2000])
 
-    content = content[:2000]
+
+def _handle_t2i(application_id: str, token: str, prompt: str):
+    api_key = os.environ.get("RUNNINGHUB_API_KEY", "")
+    if not api_key:
+        logger.error("RUNNINGHUB_API_KEY is not set")
+        return _patch_discord_message(application_id, token, "Image generation is not configured.")
+
+    # Submit the generation job
+    try:
+        task_id = _submit_t2i_job(api_key, prompt)
+    except Exception as e:
+        logger.error(f"RunningHub submit error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to start image generation: {e}")
+
+    logger.info(f"RunningHub task submitted: {task_id}")
+
+    # Poll until complete
+    try:
+        image_url = _poll_t2i_job(api_key, task_id)
+    except Exception as e:
+        logger.error(f"RunningHub poll error: {e}")
+        return _patch_discord_message(application_id, token, f"Image generation failed: {e}")
+
+    logger.info(f"RunningHub image ready: {image_url}")
+
+    # Download image bytes
+    try:
+        image_bytes, content_type = _download_image(image_url)
+    except Exception as e:
+        logger.error(f"Image download error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to download image: {e}")
+
+    # Send to Discord as file attachment
+    return _patch_discord_message_with_image(application_id, token, image_bytes, content_type, prompt)
+
+
+def _submit_t2i_job(api_key: str, prompt: str) -> str:
+    payload = json.dumps({
+        "prompt": prompt,
+        "aspectRatio": "1:1",
+        "resolution": "1k",
+    }).encode()
+    req = urllib.request.Request(
+        RUNNINGHUB_T2I_ENDPOINT,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = json.loads(resp.read().decode())
+
+    logger.info(f"RunningHub submit response: {body}")
+
+    task_id = body.get("taskId")
+    if not task_id:
+        raise ValueError(f"No taskId in submit response: {body}")
+    return task_id
+
+
+def _poll_t2i_job(api_key: str, task_id: str) -> str:
+    payload = json.dumps({"taskId": task_id}).encode()
+    for attempt in range(MAX_POLL_ATTEMPTS):
+        time.sleep(POLL_INTERVAL_SECONDS)
+        req = urllib.request.Request(
+            RUNNINGHUB_QUERY_ENDPOINT,
+            data=payload,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": "nitinankad/discord-bot",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                body = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode()
+            raise ValueError(f"Poll HTTP {e.code}: {error_body}")
+
+        logger.info(f"RunningHub poll attempt {attempt + 1}: {body}")
+
+        status = body.get("status", "")
+
+        if status == "SUCCESS":
+            results = body.get("results") or []
+            if results and results[0].get("url"):
+                return results[0]["url"]
+            raise ValueError(f"Status SUCCESS but no result URL found: {body}")
+
+        if status not in ("RUNNING", "PENDING", "QUEUED"):
+            error = body.get("errorMessage") or body.get("failedReason") or status
+            raise ValueError(f"Task {task_id} failed with status={status!r}, full body: {body}")
+
+    raise TimeoutError(f"Task {task_id} did not complete after {MAX_POLL_ATTEMPTS} polls")
+
+
+def _download_image(url: str) -> tuple[bytes, str]:
+    req = urllib.request.Request(url, headers={"User-Agent": "nitinankad/discord-bot"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        content_type = resp.headers.get("Content-Type", "image/png").split(";")[0].strip()
+        return resp.read(), content_type
+
+
+def _ext_for_content_type(content_type: str) -> str:
+    return {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/webp": "webp",
+        "image/gif": "gif",
+    }.get(content_type, "png")
+
+
+def _patch_discord_message_with_image(
+    application_id: str,
+    token: str,
+    image_bytes: bytes,
+    content_type: str,
+    prompt: str,
+) -> dict:
+    ext = _ext_for_content_type(content_type)
+    filename = f"image.{ext}"
+
+    boundary = uuid.uuid4().hex
+    payload_json = json.dumps({
+        "content": f"> {prompt[:1800]}",
+        "attachments": [{"id": 0, "filename": filename}],
+    }).encode()
+
+    # Build multipart/form-data body
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="payload_json"\r\n'
+        f"Content-Type: application/json\r\n\r\n"
+    ).encode()
+    body += payload_json
+    body += (
+        f"\r\n--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="files[0]"; filename="{filename}"\r\n'
+        f"Content-Type: {content_type}\r\n\r\n"
+    ).encode()
+    body += image_bytes
+    body += f"\r\n--{boundary}--\r\n".encode()
 
     url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
-    data = json.dumps({"content": content}).encode()
-    req = urllib.request.Request(url, data=data, method="PATCH", headers={"User-Agent": "nitinankad/discord-bot"})
-    req.add_header("Content-Type", "application/json")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="PATCH",
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
 
     try:
-        response = urllib.request.urlopen(req, timeout=10)
-        response.read()
-        return {
-            "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"message": "Response edited successfully"}),
-        }
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read()
+        return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"message": "Image sent"})}
     except urllib.error.HTTPError as e:
         error_body = e.read().decode()
         logger.error(f"Discord API error: {e.code} - {error_body}")
-        return {
-            "statusCode": e.code,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": error_body}),
-        }
+        return {"statusCode": e.code, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": error_body})}
+    except Exception as e:
+        logger.error(f"Unexpected error patching Discord message with image: {e}")
+        return {"statusCode": 500, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": str(e)})}
+
+
+def _patch_discord_message(application_id: str, token: str, content: str) -> dict:
+    url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
+    data = json.dumps({"content": content}).encode()
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method="PATCH",
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+        return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"message": "Response edited successfully"})}
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        logger.error(f"Discord API error: {e.code} - {error_body}")
+        return {"statusCode": e.code, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": error_body})}
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        return {
-            "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Internal server error"}),
-        }
+        return {"statusCode": 500, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Internal server error"})}
