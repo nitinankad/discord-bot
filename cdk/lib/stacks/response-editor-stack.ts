@@ -1,20 +1,20 @@
-import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { Duration, Stack, StackProps } from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { execSync } from 'child_process';
 import * as path from 'path';
-import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
-export class DiscordBotStack extends Stack {
+export class ResponseEditorStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    const lambdaFunction = new Function(this, 'DiscordBotLambda', {
-      functionName: 'DiscordBot',
+    const lambdaFunction = new Function(this, 'ResponseEditorLambda', {
+      functionName: 'ResponseEditor',
       runtime: Runtime.PYTHON_3_12,
-      handler: 'discord_bot.handler.handler',
-      timeout: Duration.minutes(3),
+      handler: 'discord_bot.functions.response_editor.response_editor.handler',
+      timeout: Duration.minutes(15),
+      memorySize: 512,
       code: Code.fromAsset('../', {
         bundling: {
           image: Runtime.PYTHON_3_12.bundlingImage,
@@ -35,25 +35,15 @@ export class DiscordBotStack extends Stack {
           command: [],
         },
       }),
-      memorySize: 512,
       environment: {
-        DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY || '',
+        BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-sonnet-4-5-20251001-v1:0',
       },
     });
 
     lambdaFunction.addToRolePolicy(new PolicyStatement({
-      actions: ['lambda:InvokeFunction'],
+      actions: ['bedrock:InvokeModel'],
       effect: Effect.ALLOW,
       resources: ['*'],
     }));
-
-    new LambdaRestApi(this, 'DiscordBotApi', {
-      handler: lambdaFunction,
-      restApiName: 'Discord Bot API',
-      description: 'API Gateway endpoint for Discord bot interactions',
-      deployOptions: {
-        stageName: 'prod',
-      },
-    });
   }
 }
