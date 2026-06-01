@@ -4,6 +4,7 @@ import { Duration, Stack, StackProps } from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import { execSync } from 'child_process';
 import * as path from 'path';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export class DiscordBotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -39,6 +40,11 @@ export class DiscordBotStack extends Stack {
         DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY || '',
       },
     });
+
+    lambdaFunction.addToRolePolicy(new PolicyStatement({
+      actions: ['lambda:InvokeFunction'],
+      effect: Effect.ALLOW,
+    }));
 
     new LambdaRestApi(this, 'DiscordBotApi', {
       handler: lambdaFunction,
