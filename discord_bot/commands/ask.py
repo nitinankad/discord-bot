@@ -3,6 +3,7 @@ from __future__ import annotations
 import boto3
 import json
 import os
+import random
 
 from discord_bot.commands.command_handler import CommandHandler
 
@@ -25,4 +26,21 @@ class AskCommand(CommandHandler):
             }),
         )
 
-        return "Beep boop, let me think on that... 🤔"
+        thinking = random.choice([
+            "Dillydallying...",
+            "Tinkering...",
+            "Pondering...",
+            "Ruminating...",
+            "Cogitating...",
+            "Noodling...",
+            "Scheming...",
+            "Consulting the void...",
+            "Asking the oracle...",
+            "Summoning wisdom...",
+            "Connecting the dots...",
+            "Doing math...",
+            "Vibing...",
+            "Manifesting an answer...",
+            "Thinking really hard...",
+        ])
+        return f"{thinking} 🤔"
