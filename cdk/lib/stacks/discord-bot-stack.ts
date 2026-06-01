@@ -6,8 +6,12 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
+interface DiscordBotStackProps extends StackProps {
+  responseEditorLambdaArn: string;
+}
+
 export class DiscordBotStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props?: DiscordBotStackProps) {
     super(scope, id, props);
 
     const lambdaFunction = new Function(this, 'DiscordBotLambda', {
@@ -35,9 +39,10 @@ export class DiscordBotStack extends Stack {
           command: [],
         },
       }),
-      memorySize: 512,
+      memorySize: 256,
       environment: {
         DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY || '',
+
       },
     });
 

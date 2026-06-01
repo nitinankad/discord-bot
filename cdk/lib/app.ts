@@ -8,8 +8,9 @@ dotenv.config();
 
 const app = new App();
 
+const responseStack = new ResponseEditorStack(app, 'ResponseEditorStack', {});
+
 new DiscordBotStack(app, 'DiscordBotStack', {
     env: { account: process.env.AWS_ACCOUNT_ID, region: process.env.AWS_REGION },
+    responseEditorLambdaArn: responseStack.lambdaFunction.functionArn,
 });
-
-new ResponseEditorStack(app, 'ResponseEditorStack', {});

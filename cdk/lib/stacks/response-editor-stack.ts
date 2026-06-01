@@ -1,4 +1,4 @@
-import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Code, Function, IFunction, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { Duration, Stack, StackProps } from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
@@ -6,10 +6,11 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 
 export class ResponseEditorStack extends Stack {
+  readonly lambdaFunction: IFunction;
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    const lambdaFunction = new Function(this, 'ResponseEditorLambda', {
+    this.lambdaFunction = new Function(this, 'ResponseEditorLambda', {
       functionName: 'ResponseEditor',
       runtime: Runtime.PYTHON_3_12,
       handler: 'discord_bot.functions.response_editor.response_editor.handler',
@@ -40,7 +41,7 @@ export class ResponseEditorStack extends Stack {
       },
     });
 
-    lambdaFunction.addToRolePolicy(new PolicyStatement({
+    this.lambdaFunction.addToRolePolicy(new PolicyStatement({
       actions: ['bedrock:InvokeModel'],
       effect: Effect.ALLOW,
       resources: ['*'],
