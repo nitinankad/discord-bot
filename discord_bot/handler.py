@@ -32,11 +32,11 @@ def handler(event: dict, context: object) -> dict:
 
     if interaction_type == InteractionType.APPLICATION_COMMAND:
         command = interaction.get("data", {}).get("name", "")
-        handler = resolve_command(command)
-        if handler is None:
-            content = f"Unknown command: `{command}`"
-        else:
-            content = handler.handle(interaction)
+        cmd_handler = resolve_command(command)
+        if cmd_handler is None:
+            return _json_response(200, {"type": 4, "data": {"content": f"Unknown command: `{command}`"}})
+
+        content = cmd_handler.handle(interaction)
         return _json_response(200, {"type": 4, "data": {"content": content}})
 
     return _json_response(400, {"error": "Unhandled interaction type"})
