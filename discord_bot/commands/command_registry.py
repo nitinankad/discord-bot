@@ -4,11 +4,8 @@ from discord_bot.commands.command_handler import CommandHandler
 from discord_bot.commands.ping import PingCommand
 from discord_bot.commands.ask import AskCommand
 
-if TYPE_CHECKING:
-    from typing import Dict
 
-
-COMMAND_REGISTRY: Dict[str, CommandHandler] = {
+COMMAND_REGISTRY: dict[str, CommandHandler] = {
     "ping": PingCommand(),
     "ask": AskCommand(),
 }

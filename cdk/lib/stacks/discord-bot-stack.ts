@@ -12,7 +12,7 @@ export class DiscordBotStack extends Stack {
     const lambdaFunction = new Function(this, 'DiscordBotLambda', {
       functionName: 'DiscordBot',
       runtime: Runtime.PYTHON_3_12,
-      handler: 'discord_bot.handler',
+      handler: 'discord_bot.handler.handler',
       timeout: Duration.minutes(3),
       code: Code.fromAsset('../', {
         bundling: {
