@@ -42,7 +42,7 @@ export class ResponseEditorStack extends Stack {
     });
 
     this.lambdaFunction.addToRolePolicy(new PolicyStatement({
-      actions: ['bedrock:InvokeModel'],
+      actions: ['bedrock:InvokeModel', 'bedrock:Converse'],
       effect: Effect.ALLOW,
       resources: ['*'],
     }));

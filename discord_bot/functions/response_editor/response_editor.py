@@ -12,19 +12,12 @@ logger.setLevel(logging.INFO)
 
 
 def handler(event, context):
-    try:
-        body = json.loads(event.get("body", "{}"))
-    except (json.JSONDecodeError, TypeError):
-        return {
-            "statusCode": 400,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Invalid JSON body"}),
-        }
+    task = event.get("task", "")
+    application_id = event.get("application_id")
+    token = event.get("token")
+    question = event.get("question")
 
-    task = body.get("task", "")
-    application_id = body.get("application_id")
-    token = body.get("token")
-    question = body.get("question")
+    logger.info(f'Got a request with task={task}, app_id={application_id}, question={question}')
 
     if not all([application_id, token]):
         return {
@@ -42,7 +35,7 @@ def handler(event, context):
             logger.error(f"Bedrock error: {e}")
             content = "Sorry, I encountered an error while processing your question."
     else:
-        content = body.get("content")
+        content = event.get("content")
         if not content:
             return {
                 "statusCode": 400,
@@ -52,7 +45,7 @@ def handler(event, context):
 
     url = f"https://discord.com/api/v10/webhooks/{application_id}/{token}/messages/@original"
     data = json.dumps({"content": content}).encode()
-    req = urllib.request.Request(url, data=data, method="PATCH")
+    req = urllib.request.Request(url, data=data, method="PATCH", headers={"User-Agent": "nitinankad/discord-bot"})
     req.add_header("Content-Type", "application/json")
 
     try:
