@@ -1,7 +1,9 @@
 import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
-import { Stack, StackProps } from 'aws-cdk-lib/core';
+import { Duration, Stack, StackProps } from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
+import { execSync } from 'child_process';
+import * as path from 'path';
 
 export class DiscordBotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -9,16 +11,27 @@ export class DiscordBotStack extends Stack {
 
     const lambdaFunction = new Function(this, 'DiscordBotLambda', {
       functionName: 'DiscordBot',
-      runtime: Runtime.PYTHON_3_14,
+      runtime: Runtime.PYTHON_3_12,
       handler: 'discord_bot.handler',
+      timeout: Duration.minutes(3),
       code: Code.fromAsset('../', {
         bundling: {
-          image: Runtime.PYTHON_3_14.bundlingImage,
-          command: [
-            'bash',
-            '-c',
-            'pip install --no-cache -r requirements.txt -t /asset-output && cp -au --exclude=cdk --exclude=node_modules --exclude=.git --exclude="*.md" --exclude="*.egg-info" --exclude=__pycache__ --exclude=backup --exclude=token.txt --exclude=login.txt . /asset-output',
-          ],
+          image: Runtime.PYTHON_3_12.bundlingImage,
+          local: {
+            tryBundle(outputDir: string) {
+              const src = path.resolve(__dirname, '../../../');
+              execSync(
+                `pip3 install --no-cache -r requirements.txt --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --only-binary=:all: -t ${outputDir}`,
+                { cwd: src, stdio: 'inherit' }
+              );
+              execSync(
+                `cp -r ${src}/discord_bot ${outputDir}/`,
+                { stdio: 'inherit' }
+              );
+              return true;
+            },
+          },
+          command: [],
         },
       }),
       memorySize: 512,

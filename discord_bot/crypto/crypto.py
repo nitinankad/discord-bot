@@ -1,7 +1,6 @@
-import json
+from __future__ import annotations
+
 import hashlib
-import os
-from openai import OpenAI
 
 # ── Ed25519 constants ──
 P = 2**255 - 19
@@ -69,7 +68,7 @@ def _decode_point(b):
     return (x, y, 1, x * y % P)
 
 
-def _ed25519_verify(public_key_hex, message_bytes, signature_hex):
+def ed25519_verify(public_key_hex, message_bytes, signature_hex):
     try:
         pub = bytes.fromhex(public_key_hex)
         sig = bytes.fromhex(signature_hex)
@@ -93,42 +92,3 @@ def _ed25519_verify(public_key_hex, message_bytes, signature_hex):
     ) % Q
 
     return _point_equal(_point_mul(s, G), _point_add(R, _point_mul(k, A)))
-
-
-def handler(event, context):
-    headers  = event.get("headers") or {}
-    timestamp = headers.get("x-signature-timestamp", "")
-    signature = headers.get("x-signature-ed25519", "")
-    public_key = os.environ.get("DISCORD_PUBLIC_KEY", "")
-    body = event.get("body") or ""
-    if not isinstance(body, str):
-        body = body.decode("utf-8")
-
-    if not _ed25519_verify(public_key, (timestamp + body).encode(), signature):
-        return {"statusCode": 401, "body": json.dumps({"error": "Invalid signature"}),
-                "headers": {"Content-Type": "application/json"}}
-
-    try:
-        interaction = json.loads(body)
-    except (json.JSONDecodeError, ValueError):
-        return {"statusCode": 400, "body": json.dumps({"error": "Invalid JSON"}),
-                "headers": {"Content-Type": "application/json"}}
-
-    if interaction.get("type") == 1:
-        return {"statusCode": 200, "body": json.dumps({"type": 1}),
-                "headers": {"Content-Type": "application/json"}}
-
-    if interaction.get("type") == 2:
-        command = interaction.get("data", {}).get("name", "")
-        if command == "hello":
-            content = "Hello! I'm a Discord bot running on AWS Lambda."
-        elif command == "info":
-            content = f"Bot is running on AWS Lambda. Command: `{command}`"
-        else:
-            content = f"Unknown command: `{command}`"
-        return {"statusCode": 200,
-                "body": json.dumps({"type": 4, "data": {"content": content}}),
-                "headers": {"Content-Type": "application/json"}}
-
-    return {"statusCode": 400, "body": json.dumps({"error": "Unhandled interaction type"}),
-            "headers": {"Content-Type": "application/json"}}
