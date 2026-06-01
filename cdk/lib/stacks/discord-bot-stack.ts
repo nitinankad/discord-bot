@@ -8,9 +8,28 @@ export class DiscordBotStack extends Stack {
     super(scope, id, props);
 
     const lambdaFunction = new Function(this, 'DiscordBotLambda', {
+      functionName: 'DiscordBot',
       runtime: Runtime.PYTHON_3_14,
       handler: 'discord_bot.handler',
-      code: Code.fromAsset('../'),
+      code: Code.fromAsset('../', {
+        exclude: [
+          '.git',
+          '.gitignore',
+          'cdk',
+          'node_modules',
+          '*.md',
+          '*.yml',
+          '*.json',
+          '*.jsonc',
+          'dist',
+          'cdk.out',
+          'backup',
+          'token.txt',
+          'login.txt',
+          '*.egg-info',
+          '__pycache__',
+        ],
+      }),
       memorySize: 512,
       environment: {
         DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY || '',
