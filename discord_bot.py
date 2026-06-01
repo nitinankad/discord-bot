@@ -1,6 +1,7 @@
 import json
 import hashlib
 import os
+from openai import OpenAI
 
 # ── Ed25519 constants ──
 P = 2**255 - 19

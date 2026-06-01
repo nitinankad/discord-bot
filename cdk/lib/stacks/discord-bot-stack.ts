@@ -12,23 +12,14 @@ export class DiscordBotStack extends Stack {
       runtime: Runtime.PYTHON_3_14,
       handler: 'discord_bot.handler',
       code: Code.fromAsset('../', {
-        exclude: [
-          '.git',
-          '.gitignore',
-          'cdk',
-          'node_modules',
-          '*.md',
-          '*.yml',
-          '*.json',
-          '*.jsonc',
-          'dist',
-          'cdk.out',
-          'backup',
-          'token.txt',
-          'login.txt',
-          '*.egg-info',
-          '__pycache__',
-        ],
+        bundling: {
+          image: Runtime.PYTHON_3_14.bundlingImage,
+          command: [
+            'bash',
+            '-c',
+            'pip install --no-cache -r requirements.txt -t /asset-output && cp -au --exclude=cdk --exclude=node_modules --exclude=.git --exclude="*.md" --exclude="*.egg-info" --exclude=__pycache__ --exclude=backup --exclude=token.txt --exclude=login.txt . /asset-output',
+          ],
+        },
       }),
       memorySize: 512,
       environment: {
