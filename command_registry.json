@@ -12,6 +12,18 @@
     ]
   },
   {
+    "name": "chat",
+    "description": "Chat with the Wise Old Man",
+    "options": [
+      {
+        "name": "message",
+        "type": 3,
+        "description": "Your message",
+        "required": true
+      }
+    ]
+  },
+  {
     "name": "t2i",
     "description": "Convert text to an image",
     "options": [

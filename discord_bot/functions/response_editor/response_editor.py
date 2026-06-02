@@ -9,6 +9,7 @@ import urllib.error
 import logging
 
 from discord_bot.facade.bedrock_facade import get_bedrock_response
+from discord_bot.facade.abliteration_facade import get_abliteration_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -16,6 +17,7 @@ logger.setLevel(logging.INFO)
 RUNNINGHUB_BASE = "https://www.runninghub.ai/openapi/v2"
 RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/text-to-image"
 RUNNINGHUB_T2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/wan-2.2/text-to-video"
+RUNNINGHUB_I2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/ltx-2.3/image-to-video"
 RUNNINGHUB_I2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/image-to-image"
 RUNNINGHUB_QUERY_ENDPOINT = f"{RUNNINGHUB_BASE}/query"
 
@@ -53,6 +55,22 @@ def handler(event, context):
             content = "Sorry, I encountered an error while processing your question."
         return _patch_discord_message(application_id, token, content[:2000])
 
+    elif task == "chat_followup":
+        message = event.get("message")
+        if not message:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required field: message"}),
+            }
+        try:
+            logger.info(f"Generating chat response for: {message}")
+            content = get_abliteration_response(message)
+        except Exception as e:
+            logger.error(f"Abliteration error: {e}")
+            content = "Sorry, I encountered an error while processing your message."
+        return _patch_discord_message(application_id, token, content[:2000])
+
     elif task == "t2v_followup":
         prompt = event.get("prompt")
         if not prompt:
@@ -72,6 +90,17 @@ def handler(event, context):
                 "body": json.dumps({"error": "Missing required field: prompt"}),
             }
         return _handle_t2i(application_id, token, prompt)
+
+    elif task == "i2v_followup":
+        prompt = event.get("prompt")
+        image_url = event.get("image_url")
+        if not prompt or not image_url:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required fields: prompt, image_url"}),
+            }
+        return _handle_i2v(application_id, token, image_url, prompt)
 
     elif task == "i2i_followup":
         prompt = event.get("prompt")
@@ -159,6 +188,66 @@ def _handle_t2v(application_id: str, token: str, prompt: str):
         return _patch_discord_message(application_id, token, f"Failed to download video: {e}")
 
     return _patch_discord_message_with_file(application_id, token, video_bytes, content_type, prompt)
+
+
+def _handle_i2v(application_id: str, token: str, image_url: str, prompt: str):
+    api_key = os.environ.get("RUNNINGHUB_API_KEY", "")
+    if not api_key:
+        logger.error("RUNNINGHUB_API_KEY is not set")
+        return _patch_discord_message(application_id, token, "Video generation is not configured.")
+
+    try:
+        task_id = _submit_i2v_job(api_key, image_url, prompt)
+    except Exception as e:
+        logger.error(f"RunningHub i2v submit error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to start video generation: {e}")
+
+    logger.info(f"RunningHub i2v task submitted: {task_id}")
+
+    try:
+        video_url = _poll_t2i_job(api_key, task_id)
+    except Exception as e:
+        logger.error(f"RunningHub i2v poll error: {e}")
+        return _patch_discord_message(application_id, token, f"Video generation failed: {e}")
+
+    logger.info(f"RunningHub i2v video ready: {video_url}")
+
+    try:
+        video_bytes, content_type = _download_image(video_url)
+    except Exception as e:
+        logger.error(f"i2v video download error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to download video: {e}")
+
+    return _patch_discord_message_with_file(application_id, token, video_bytes, content_type, prompt)
+
+
+def _submit_i2v_job(api_key: str, image_url: str, prompt: str) -> str:
+    payload = json.dumps({
+        "imageUrl": image_url,
+        "prompt": prompt,
+        "resolution": "480p",
+        "aspectRatio": "16:9",
+        "duration": 5,
+    }).encode()
+    req = urllib.request.Request(
+        RUNNINGHUB_I2V_ENDPOINT,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = json.loads(resp.read().decode())
+
+    logger.info(f"RunningHub i2v submit response: {body}")
+
+    task_id = body.get("taskId")
+    if not task_id:
+        raise ValueError(f"No taskId in i2v submit response: {body}")
+    return task_id
 
 
 def _handle_i2i(application_id: str, token: str, image_url: str, prompt: str):
