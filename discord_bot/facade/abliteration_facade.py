@@ -31,6 +31,7 @@ def get_abliteration_response(message: str) -> str:
             {"role": "user", "content": message},
         ],
         max_tokens=_MAX_TOKENS,
+        extra_body={"enable_thinking": False},
     )
 
     logger.info(f"Abliteration response: {response}")
