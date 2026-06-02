@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ask",
+    "description": "Ask me anything!",
+    "options": [
+      {
+        "name": "question",
+        "type": 3,
+        "description": "Your question",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "t2i",
+    "description": "Convert text to an image",
+    "options": [
+      {
+        "name": "prompt",
+        "type": 3,
+        "description": "Your prompt",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "t2v",
+    "description": "Convert text to video",
+    "options": [
+      {
+        "name": "prompt",
+        "type": 3,
+        "description": "Your prompt",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "i2i",
+    "description": "Transform an image with a prompt",
+    "options": [
+      {
+        "name": "image",
+        "type": 11,
+        "description": "The image to transform",
+        "required": true
+      },
+      {
+        "name": "prompt",
+        "type": 3,
+        "description": "Your prompt",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "i2v",
+    "description": "Convert image with prompt to video",
+    "options": [
+      {
+        "name": "image",
+        "type": 11,
+        "description": "The image to animate",
+        "required": true
+      },
+      {
+        "name": "prompt",
+        "type": 3,
+        "description": "Your prompt",
+        "required": true
+      }
+    ]
+  }
+]

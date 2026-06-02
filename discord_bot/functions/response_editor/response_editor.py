@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 RUNNINGHUB_BASE = "https://www.runninghub.ai/openapi/v2"
 RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/text-to-image"
 RUNNINGHUB_T2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/wan-2.2/text-to-video"
+RUNNINGHUB_I2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/image-to-image"
 RUNNINGHUB_QUERY_ENDPOINT = f"{RUNNINGHUB_BASE}/query"
 
 POLL_INTERVAL_SECONDS = 5
@@ -71,6 +72,17 @@ def handler(event, context):
                 "body": json.dumps({"error": "Missing required field: prompt"}),
             }
         return _handle_t2i(application_id, token, prompt)
+
+    elif task == "i2i_followup":
+        prompt = event.get("prompt")
+        image_url = event.get("image_url")
+        if not prompt or not image_url:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required fields: prompt, image_url"}),
+            }
+        return _handle_i2i(application_id, token, image_url, prompt)
 
     else:
         content = event.get("content")
@@ -147,6 +159,64 @@ def _handle_t2v(application_id: str, token: str, prompt: str):
         return _patch_discord_message(application_id, token, f"Failed to download video: {e}")
 
     return _patch_discord_message_with_file(application_id, token, video_bytes, content_type, prompt)
+
+
+def _handle_i2i(application_id: str, token: str, image_url: str, prompt: str):
+    api_key = os.environ.get("RUNNINGHUB_API_KEY", "")
+    if not api_key:
+        logger.error("RUNNINGHUB_API_KEY is not set")
+        return _patch_discord_message(application_id, token, "Image transformation is not configured.")
+
+    try:
+        task_id = _submit_i2i_job(api_key, image_url, prompt)
+    except Exception as e:
+        logger.error(f"RunningHub i2i submit error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to start image transformation: {e}")
+
+    logger.info(f"RunningHub i2i task submitted: {task_id}")
+
+    try:
+        result_url = _poll_t2i_job(api_key, task_id)
+    except Exception as e:
+        logger.error(f"RunningHub i2i poll error: {e}")
+        return _patch_discord_message(application_id, token, f"Image transformation failed: {e}")
+
+    logger.info(f"RunningHub i2i image ready: {result_url}")
+
+    try:
+        image_bytes, content_type = _download_image(result_url)
+    except Exception as e:
+        logger.error(f"i2i image download error: {e}")
+        return _patch_discord_message(application_id, token, f"Failed to download transformed image: {e}")
+
+    return _patch_discord_message_with_file(application_id, token, image_bytes, content_type, prompt)
+
+
+def _submit_i2i_job(api_key: str, image_url: str, prompt: str) -> str:
+    payload = json.dumps({
+        "imageUrls": [image_url],
+        "prompt": prompt,
+        "resolution": "1k",
+    }).encode()
+    req = urllib.request.Request(
+        RUNNINGHUB_I2I_ENDPOINT,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = json.loads(resp.read().decode())
+
+    logger.info(f"RunningHub i2i submit response: {body}")
+
+    task_id = body.get("taskId")
+    if not task_id:
+        raise ValueError(f"No taskId in i2i submit response: {body}")
+    return task_id
 
 
 def _submit_t2v_job(api_key: str, prompt: str) -> str:
