@@ -18,7 +18,7 @@ RUNNINGHUB_BASE = "https://www.runninghub.ai/openapi/v2"
 RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-g/text-to-image"
 RUNNINGHUB_T2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/wan-2.2/text-to-video"
 RUNNINGHUB_I2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/ltx-2.3/image-to-video"
-RUNNINGHUB_I2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-n-g31-flash/image-to-image"
+RUNNINGHUB_I2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-g/image-to-image"
 RUNNINGHUB_QUERY_ENDPOINT = f"{RUNNINGHUB_BASE}/query"
 
 POLL_INTERVAL_SECONDS = 5
@@ -283,9 +283,9 @@ def _handle_i2i(application_id: str, token: str, image_url: str, prompt: str):
 
 def _submit_i2i_job(api_key: str, image_url: str, prompt: str) -> str:
     payload = json.dumps({
-        "imageUrls": [image_url],
+        "model": "g-4.2",
         "prompt": prompt,
-        "resolution": "1k",
+        "imageUrl": image_url,
     }).encode()
     req = urllib.request.Request(
         RUNNINGHUB_I2I_ENDPOINT,
