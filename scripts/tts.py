@@ -54,8 +54,7 @@ class QwenTTS:
             dtype=torch.bfloat16,
         )
 
-    @modal.method()
-    def generate(self, text: str, speaker: str = "Ryan", language: str = "English", instruct: str = "") -> bytes:
+    def _generate(self, text: str, speaker: str = "Ryan", language: str = "English", instruct: str = "") -> bytes:
         import soundfile as sf
 
         wavs, sr = self.model.generate_custom_voice(
@@ -65,11 +64,15 @@ class QwenTTS:
         sf.write(buf, wavs[0], sr, format="WAV")
         return buf.getvalue()
 
+    @modal.method()
+    def generate(self, text: str, speaker: str = "Ryan", language: str = "English", instruct: str = "") -> bytes:
+        return self._generate(text, speaker, language, instruct)
+
     @modal.fastapi_endpoint(method="POST")
     def api(self, item: dict) -> "fastapi.responses.Response":
         import fastapi
 
-        audio = self.generate(
+        audio = self._generate(
             text=item.get("text", "Hello."),
             speaker=item.get("speaker", "Ryan"),
             language=item.get("language", "English"),

@@ -8,6 +8,7 @@ from discord_bot.commands.t2i import T2iCommand
 from discord_bot.commands.t2v import T2vCommand
 from discord_bot.commands.i2v import I2vCommand
 from discord_bot.commands.i2i import I2iCommand
+from discord_bot.commands.t2s import T2sCommand
 
 
 COMMAND_REGISTRY: dict[str, CommandHandler] = {
@@ -18,6 +19,7 @@ COMMAND_REGISTRY: dict[str, CommandHandler] = {
     "t2v": T2vCommand(),
     "i2v": I2vCommand(),
     "i2i": I2iCommand(),
+    "t2s": T2sCommand(),
 }
 
 def resolve_command(name: str) -> CommandHandler | None:

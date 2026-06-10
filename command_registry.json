@@ -82,5 +82,29 @@
         "required": true
       }
     ]
+  },
+  {
+    "name": "t2s",
+    "description": "Convert text to speech",
+    "options": [
+      {
+        "name": "text",
+        "type": 3,
+        "description": "The text to speak",
+        "required": true
+      },
+      {
+        "name": "speaker",
+        "type": 3,
+        "description": "Voice to use (default: Ryan)",
+        "required": false,
+        "choices": [
+          { "name": "Ryan", "value": "Ryan" },
+          { "name": "Vivian", "value": "Vivian" },
+          { "name": "Uncle Fu", "value": "Uncle_Fu" },
+          { "name": "Aiden", "value": "Aiden" }
+        ]
+      }
+    ]
   }
 ]

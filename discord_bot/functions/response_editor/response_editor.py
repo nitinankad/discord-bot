@@ -102,6 +102,19 @@ def handler(event, context):
             }
         return _handle_i2v(application_id, token, image_url, prompt)
 
+    elif task == "t2s_followup":
+        text = event.get("text")
+        if not text:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing required field: text"}),
+            }
+        speaker = event.get("speaker", "Ryan")
+        language = event.get("language", "English")
+        instruct = event.get("instruct", "")
+        return _handle_t2s(application_id, token, text, speaker, language, instruct)
+
     elif task == "i2i_followup":
         prompt = event.get("prompt")
         image_url = event.get("image_url")
@@ -122,6 +135,37 @@ def handler(event, context):
                 "body": json.dumps({"error": "Missing required field: content"}),
             }
         return _patch_discord_message(application_id, token, content[:2000])
+
+
+def _handle_t2s(application_id: str, token: str, text: str, speaker: str, language: str, instruct: str):
+    payload = json.dumps({
+        "text": text,
+        "speaker": speaker,
+        "language": language,
+        "instruct": instruct,
+    }).encode()
+    tts_endpoint = os.environ.get("TTS_ENDPOINT_URL", "")
+    if not tts_endpoint:
+        logger.error("TTS_ENDPOINT_URL is not set")
+        return _patch_discord_message(application_id, token, "Speech generation is not configured.")
+    req = urllib.request.Request(
+        tts_endpoint,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "nitinankad/discord-bot",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            audio_bytes = resp.read()
+            content_type = resp.headers.get("Content-Type", "audio/wav").split(";")[0].strip()
+    except Exception as e:
+        logger.error(f"TTS endpoint error: {e}")
+        return _patch_discord_message(application_id, token, f"Speech generation failed: {e}")
+
+    return _patch_discord_message_with_file(application_id, token, audio_bytes, content_type, text)
 
 
 def _handle_t2i(application_id: str, token: str, prompt: str):
@@ -416,6 +460,9 @@ _CONTENT_TYPE_MAP = {
     "video/mp4": ("video", "mp4"),
     "video/webm": ("video", "webm"),
     "video/quicktime": ("video", "mov"),
+    "audio/wav": ("audio", "wav"),
+    "audio/x-wav": ("audio", "wav"),
+    "audio/mpeg": ("audio", "mp3"),
 }
 
 
