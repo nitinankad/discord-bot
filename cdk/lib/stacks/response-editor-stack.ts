@@ -23,7 +23,7 @@ export class ResponseEditorStack extends Stack {
             tryBundle(outputDir: string) {
               const src = path.resolve(__dirname, '../../../');
               execSync(
-                `pip3 install --no-cache -r requirements.txt --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --only-binary=:all: -t ${outputDir}`,
+                `pip3.11 install --no-cache -r requirements.txt --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --only-binary=:all: -t ${outputDir}`,
                 { cwd: src, stdio: 'inherit' }
               );
               execSync(
