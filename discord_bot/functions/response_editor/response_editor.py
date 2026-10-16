@@ -15,7 +15,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 RUNNINGHUB_BASE = "https://www.runninghub.ai/openapi/v2"
-RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-g/text-to-image"
+RUNNINGHUB_T2I_ENDPOINT = f"{RUNNINGHUB_BASE}/alibaba/wan-2.7/text-to-image"
 RUNNINGHUB_T2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/wan-2.2/text-to-video"
 RUNNINGHUB_I2V_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-video/ltx-2.3/image-to-video"
 RUNNINGHUB_I2I_ENDPOINT = f"{RUNNINGHUB_BASE}/rhart-image-g/image-to-image"
@@ -382,8 +382,10 @@ def _submit_t2v_job(api_key: str, prompt: str) -> str:
 
 def _submit_t2i_job(api_key: str, prompt: str) -> str:
     payload = json.dumps({
-        "model": "g-4.2",
         "prompt": prompt,
+        "width": 1024,
+        "height": 1024,
+        "thinkingMode": False,
     }).encode()
     req = urllib.request.Request(
         RUNNINGHUB_T2I_ENDPOINT,
